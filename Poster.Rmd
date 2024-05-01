@@ -1,0 +1,352 @@
+---
+main_topsize: 0.15 #percent coverage of the poster
+main_bottomsize: 0
+#ESSENTIALS
+title: '**A Tale of Two Ethnicities: Renting in Maryland**'
+author:
+  - name: Jacob Álvarez
+    affil: 1
+    main: true
+    email: ja2905a@american.edu
+affiliation:
+  - num: 1
+    address: School of International Service, American University
+main_findings:
+  - "In Maryland, **Hispanic** communities have **higher rates** of residents **renting** than white non-Hispanic communities."
+output: 
+  posterdown::posterdown_betterport:
+    self_contained: true
+    pandoc_args: --mathjax
+    number_sections: false
+bibliography: packages.bib
+link-citations: true
+---
+
+```{r, include=FALSE}
+#setup chunk
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      tidy = FALSE,
+                      message = FALSE,
+                      fig.align = 'center',
+                      out.width = "100%")
+options(knitr.table.format = "html") 
+
+#load packages
+library(tidyverse)
+library(knitr)
+library(stargazer)
+
+#load CSVs
+ACS <- read_csv('Maryland_American_Community_Survey_-_ACS_ZIP_Code_Tabulation_Areas_(ZCTAs).csv')
+ZIP <- read_csv('Maryland_Census_Data_-_ZIP_Code_Tabulation_Areas_(ZCTAs).csv')
+
+#select wanted variables from ZIP
+ZIP <-
+  ZIP |>
+    select(
+      FIRST_GEOI, ZCTA5CE10, AREALAND, AREAWATR, POP100, HU100, PNHW, PNHB, PNHAI, PNHA,
+      PNHNH, PNHO, PNHT, PHISP, PCTPOP65_, MEDAGE, PVACNS, PHOWN,
+      PWOMORT, PRENT, PLT18SP
+    )
+
+#change ZIP variable names to be comprehensible
+ZIP <-
+  ZIP |>
+    rename(
+      census_identifier = FIRST_GEOI,
+      zip_code = ZCTA5CE10,
+      land_area = AREALAND,
+      water_area = AREAWATR,
+      total_population = POP100,
+      total_housing_units = HU100,
+      pct_NH_white = PNHW,
+      pct_NH_black = PNHB,
+      pct_NH_native = PNHAI,
+      pct_NH_asian = PNHA,
+      pct_NH_hawaiian = PNHNH,
+      pct_NH_other = PNHO,
+      pct_NH_total = PNHT,
+      pct_hispanic = PHISP,
+      pct_over_65 = PCTPOP65_,
+      median_age = MEDAGE,
+      pct_vacant_units = PVACNS,
+      homeowner_rate = PHOWN,
+      pct_homeowner_wo_mortgage = PWOMORT,
+      pct_rent = PRENT,
+      pct_under_18 = PLT18SP
+  )
+
+#select wanted variables from ACS
+ACS <-
+  ACS |>
+  select(
+    GEOID10, PCT_BA, PCT_FB, PCTENGL_LT, PCTUMPLD, MEDHHINC, PCTSNAP,
+    PCTNOHLTH, PCTFAMRELC, POV_POP, PERLT18, POV65UP
+  )
+
+#change ACS variable names to be comprehensible
+ACS <-
+  ACS |>
+  rename(
+    census_identifier = GEOID10,
+    pct_bachelors_degree = PCT_BA,
+    pct_foreign_born = PCT_FB,
+    pct_little_english = PCTENGL_LT,
+    pct_unemployed = PCTUMPLD,
+    median_household_income = MEDHHINC,
+    pct_households_benefits = PCTSNAP,
+    pct_no_health_insurance = PCTNOHLTH,
+    pct_poverty_fams_w_children = PCTFAMRELC,
+    pct_poverty_population = POV_POP,
+    pct_poverty_under_18 = PERLT18,
+    pct_poverty_over_65 = POV65UP
+  )
+
+#join ACS and ZIP into df
+df = left_join(
+  ZIP, 
+  ACS, 
+  by = join_by(census_identifier)
+) 
+
+#clean global environment
+rm(ACS, ZIP)
+
+#remove duplicated observations
+df <-
+df[!duplicated(df$census_identifier), ]
+
+#standardize NAs
+df <-
+  df |>
+    mutate(
+      pct_bachelors_degree = na_if(pct_bachelors_degree, -999.0),
+      pct_foreign_born = na_if(pct_foreign_born, -999.0),
+      pct_little_english = na_if(pct_little_english, -999.0),
+      pct_unemployed = na_if(pct_unemployed, -999.0),
+      median_household_income = na_if(median_household_income, -999),
+      pct_households_benefits = na_if(pct_households_benefits, -999.0),
+      pct_no_health_insurance = na_if(pct_no_health_insurance, -999.0),
+      pct_poverty_fams_w_children = na_if(pct_poverty_fams_w_children, -999.0),
+      pct_poverty_population = na_if(pct_poverty_population, -999.0),
+      pct_poverty_under_18 = na_if(pct_poverty_under_18, -999.0),
+      pct_poverty_over_65 = na_if(pct_poverty_over_65, -999)
+    )
+```
+
+# Abstract
+
+This data analysis finds uses publicly-accessible demographic data to determine if communities have higher rates of renting depending on their Hispanic and white non-Hispanic population percentages. It finds evidence that, controlling for other economic variables, as a ZIP code's residents become more white non-Hispanic, the percentage of residents renting falls. It also finds evidence that as a ZIP code's residents become more Hispanic, the percentage of residents renting increases.
+
+# Background
+
+Due to the impacts of colonial settlement of North America and legacies of discriminatory property laws, white non-Hispanic Americans have had official encouragement and assistance accumulating land and wealth. On the other hand, Hispanic Americans, who had practically no presence on the East Coast until the last century and suffered under unfair housing, labor, and immigration laws, have not had the same opportunity to accumulate property. Therefore, it is this analysis' expectation that the wealth disparity between these two groups will be reflected in communities' rental rates. **Controlling for other indicators of economic status such as college education, the percentage of the population in poverty, and the percentage of the population without health insurance, are Maryland ZIP codes with higher percentages of non-Hispanic white residents correlated with lower rates of renting than ZIP codes with higher percentages of Hispanic residents?** This question has important implications for targeted first-time homeowner programs, wealth inequality in the state, and the effects of history on Maryland's population.
+
+# Data
+
+## Source
+
+The data for this analysis come from the State of Maryland's [Council on Open Data](https://opendata.maryland.gov/stories/s/Council-on-Open-Data/vyny-sdaq/), an initiative by Maryland to provide data to the public. This analysis uses two datasets, [one](https://data.imap.maryland.gov/datasets/eb706b48117b43d482c63d02017fc3ff/explore?showTable=true) featuring demographic data by ZIP code and [another](https://data-maryland.opendata.arcgis.com/datasets/maryland::maryland-american-community-survey-acs-zip-code-tabulation-areas-zctas/explore?location=38.788180%2C-77.268400%2C7.90&showTable=true) featuring economic data by ZIP code, both last updated in December 2017 and downloaded in April 2024. The two datasets were merged before conducting analysis.
+
+## Key Variables
+
+Hispanic Percentage `[pct_hispanic]`: Percentage of ZIP code residents who self-identify as Hispanic, *regardless* of race.
+
+```{r fig.height=3, fig.width=9}
+
+#summary kable function
+varsum = function(df, var){
+  df |>
+    summarize(min = min({{var}}, na.rm = T),
+    max = max({{var}}, na.rm = T),
+    mean = mean({{var}}, na.rm = T),
+    median = median({{var}}, na.rm = T)) |>
+    mutate(
+      mean = round(mean, digits = 2))
+}
+
+#boxplot function
+box.plot = function(df, var){
+df |>
+  ggplot(aes(x = {{var}}, fill = "lightgreen")) +
+  geom_boxplot() +
+  scale_y_continuous(expand = c(1,1)) +
+  scale_fill_manual(values = c(lightgreen = "#e8efef")) +
+  theme(
+    legend.position = "none",
+    panel.background = element_blank(),
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.text.x = element_text(size = 12,
+                               face = "bold"),
+    axis.title.x = element_blank(),
+    panel.grid.major.x = element_line(linetype = "dashed",
+                                      color = "black"),
+    axis.ticks.x = element_blank(),
+    aspect.ratio = 1/3
+  )
+}
+
+#pct_hispanic kable
+varsum(df, pct_hispanic) |>
+  kable()
+
+#pct_hispanic boxplot
+box.plot(df, pct_hispanic) +
+    labs(
+      title = "Hispanic Percent"
+    ) +
+    theme(
+      plot.title = element_text(family = "serif",
+                                  size = 20,
+                                hjust = .5)
+    )
+```
+
+White non-Hispanic Percentage `[pct_NH_white]`: Percentage of ZIP code residents who self-identify as white and not Hispanic.
+
+```{r fig.height=3, fig.width=9}
+#pct_NH_white kable
+varsum(df, pct_NH_white) |>
+  kable()
+
+#pct_NH_white boxplot
+box.plot(df, pct_NH_white) +
+    labs(
+      title = "White non-Hispanic Percent"
+    ) +
+    theme(
+      plot.title = element_text(family = "serif",
+                                  size = 20,
+                                hjust = .5)
+    )
+```
+
+Rent Percentage `[pct_rent]`: Percentage of ZIP code residents who rent their housing.
+
+```{r fig.height=3, fig.width=9}
+#pct_rent kable
+varsum(df, pct_rent) |>
+  kable()
+
+#pct_rent boxplot
+box.plot(df, pct_rent) +
+    labs(
+      title = "Rent Percent"
+    ) +
+    theme(
+      plot.title = element_text(family = "serif",
+                                  size = 20,
+                                hjust = .5)
+    )
+```
+
+# Results
+
+The following graph shows Maryland's ZIP codes' non-Hispanic white population percentage and renting percentage, with a line of best fit caculated using OLS:
+
+```{r}
+#turn theme into object for easy replication
+mytheme <-
+  theme(
+    panel.background = element_blank(),
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text = element_text(size = 15,
+                             face = "bold"),
+    axis.title = element_text(size = 15,
+                             face = "bold"),
+    panel.grid.major = element_line(linetype = "dashed",
+                                      color = "gray"),
+    plot.title = element_text(hjust = .5,
+                              size = 20,
+                              face = "bold")
+  )
+
+#white x rent plot
+df |>
+ggplot(aes(x = pct_rent, y = pct_NH_white)) +
+geom_smooth(method = lm, se = T, color = "blue", fill = "cornflowerblue") +
+  geom_point() +
+labs(
+  y = "Percent White non-Hispanic",
+  x = "Percent Renting",
+  title = "ZIP Code Renting Rate by White Percentage") +
+mytheme
+```
+
+The following graph shows Maryland's ZIP codes' Hispanic population percentage and renting percentage, with a line of best fit caculated using OLS:
+
+```{r}
+#hispanic x rent plot
+df |>
+  ggplot(aes(x = pct_rent, y = pct_hispanic)) +
+  geom_smooth(method = lm, se = T, color = "blue", fill = "cornflowerblue") +
+  geom_point() +
+  labs(
+    y = "Percent Hispanic",
+    x = "Percent Renting",
+    title = "ZIP Code Renting Rate by Hispanic Percentage") +
+mytheme
+```
+<br>
+
+### Regression Table with Control Variables
+
+```{r message=FALSE, results='asis'}
+mod1 = lm(pct_rent ~ pct_hispanic + pct_bachelors_degree +
+          pct_poverty_population + pct_no_health_insurance,
+          data = df)
+
+mod2 = lm(pct_rent ~ pct_NH_white + pct_bachelors_degree +
+          pct_poverty_population + pct_no_health_insurance,
+          data = df)
+
+stargazer(mod1, mod2,
+          type = 'html',
+          keep.stat = 'n',
+          column.labels = c("Hispanic Model","White Model"),
+          covariate.labels = c("Hispanic Percentage", "White non-Hispanic Percentage", "Bachelor's Degree Percentage", "Poverty Population Percentage", "No Health Insurance Percentage"),
+          model.numbers = F,
+          dep.var.labels = "Rent Percentage")
+```
+<br>
+
+### Examples: ZIP Codes with Over 1,000 Residents
+
+```{r}
+
+whitehi <-
+  df |>
+  filter(total_population > 1000) |>
+  slice_max(order_by = pct_NH_white, n = 3) |>
+  select(
+    pct_hispanic, pct_NH_white, pct_rent, total_population, zip_code
+  )
+
+hisphi <-
+  slice_max(df, order_by = pct_hispanic, n = 3) |>
+  select(
+    pct_hispanic, pct_NH_white, pct_rent, total_population, zip_code
+  )
+```
+##### Highest Percentages of Hispanic Residents
+```{r}
+cases = function(obj){kable(x = obj, col.names = c("Hispanic Percent", "White non-Hispanic Percent", "Rent Percent", "Population", "ZIP Code"))}
+
+cases(hisphi)
+```
+<br>
+
+##### Highest Percentages of White non-Hispanic Residents
+```{r}
+cases(whitehi)
+```
+
+# Discussion
+
+The data show that an increase in a ZIP code's non-Hispanic white population is associated with a **decrease** in the percentage of that ZIP code's population that rents. The data also show that an increase in a ZIP code's Hispanic population is associated with a **increase** in the percentage of that ZIP code's population that rents. the regression analysis finds that both of these relationships are statistically significant, meaning that, *holding constant* two communities' college educations, health insurance coverage, and poverty, the more Hispanic community should have a higher percentage of renters than the more non-Hispanic white community.
+
+This points to a larger phenomenon across Maryland and the rest of the United States: the wealth disparity between Hispanics and non-Hispanic whites is both created by patterns of historical wealth accumulation and perpetuated by the realities of renting. When a Hispanic family rents a home, that rent is not put toward their future wealth: it is profit for someone else. When a white family pays mortgage on a home, that mortgage will eventually end and that house will belong to them. no amount of renting ends with the renter owning the apartment. This perpetuates the wealth gap between the two groups and keeps many Hispanics trapped in the cycle of labor exploitation and relative economic and political powerlessness.
